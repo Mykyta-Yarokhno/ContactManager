@@ -1,0 +1,248 @@
+﻿@model IEnumerable<Contact>
+@using System.Globalization
+@using ContactManager.Api.ViewModels
+@using ContactManager.Domain.Entities.Contacts
+
+
+<h2>Person Data</h2>
+
+<form asp-action="UploadNewCsvFile" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" />
+    <input type="submit" value="Upload CSV" />
+</form>
+
+
+<table id="personTable" class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Date of Birth</th>
+            <th>Married</th>
+            <th>Phone</th>
+            <th>Salary</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var person in Model)
+        {
+            <tr data-id="@person.Id">
+                <td >@person.Name</td>
+                <td >@person.DateOfBirth.ToString("yyyy-MM-dd")</td>
+                <td >@person.Married</td>
+                <td >@person.Phone</td>
+                <td >@person.Salary.ToString(CultureInfo.InvariantCulture)</td>
+                <td>
+                    <button class="deleteBtn btn btn-danger">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@section Scripts {
+
+    <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('#personTable').DataTable({
+                "paging": true,
+                "searching": true,
+                "ordering": true
+            });
+
+            //Inline Editing
+            let table = document.getElementById('personTable');
+            let columnTypes = ["string", "date", "bool", "phone", "currency"]
+
+            let editingTd;
+
+            table.onclick = function (event) {
+
+                let target = event.target.closest('.edit-cancel,.edit-ok,td');
+
+                if (!table.contains(target)) return;
+
+                if (target.className == 'edit-cancel') {
+                    finishTdEdit(editingTd.elem, false);
+                } 
+                else if (target.className == 'edit-ok') {
+                    let row = $(editingTd.elem.closest('tr'));
+
+                    if (editingTd.data == editingTd.elem.firstChild.value) {
+                        
+                        // There are no changes
+                        finishTdEdit(editingTd.elem, true);
+
+                        return;
+                    }
+
+                    // Validate
+                    if (editingTd.elem.firstChild.type == 'tel') {
+                        if (!(/^(?:\+\d{1,3}[\s.-]?)?(\(?\d{1,4}\)?[\s.-]?)?\d{1,4}[\s.-]?\d{1,4}[\s.-]?\d{1,9}$/.test(editingTd.elem.firstChild.value))) {
+                            alert("Invalid format");
+
+                            return;
+                        }
+                    }
+                    else if (editingTd.elem.firstChild.type == 'checkbox') {
+                        editingTd.elem.firstChild.value = (editingTd.elem.firstChild.checked == true ? 'True' : 'False');
+                    }
+                    else {
+                        if (!editingTd.elem.firstChild.checkValidity()) {
+                            alert(editingTd.elem.firstChild.validationMessage);
+
+                            return;
+                        }
+                    }
+
+                    finishTdEdit(editingTd.elem, true);
+
+                    updatePersonInfo(row);
+                } 
+                else if (target.nodeName == 'TD') {
+                    if (editingTd) 
+                        return; 
+
+                    makeTdEditable(target);
+                }
+
+            }
+
+
+            function makeTdEditable(td) {
+
+                if (td.querySelector('button')) {
+                    return;
+                }
+
+                editingTd = {
+                    elem: td,
+                    data: td.innerHTML
+                };
+
+
+                let el = createEditControl(td, columnTypes[td.cellIndex]);
+
+                if (el.type == "checkbox") {
+                    el.checked = td.innerHTML == "True" ? true : false;
+                }
+                else
+                    el.value = td.innerHTML;
+
+                td.innerHTML = '';
+
+                td.appendChild(el);
+
+                el.focus();
+
+                td.insertAdjacentHTML("beforeEnd",
+                    '<div class="edit-controls"><button class="edit-ok">OK</button><button class="edit-cancel">CANCEL</button></div>'
+
+                );
+            }
+
+            function createEditControl(td, type) {
+                let elInput;
+
+                switch (type) {
+                    case 'date':
+                        elInput = document.createElement('input');
+                        elInput.type = 'date';
+                        break;
+                    case 'bool':
+                        elInput = document.createElement('input');
+                        elInput.type = 'checkbox';
+                        break;
+                    case 'phone':
+                        elInput = document.createElement('input');
+                        elInput.type = 'tel';
+                        break;
+                    case 'currency':
+                        elInput = document.createElement('input');
+                        elInput.type = 'number';
+                        elInput.max = '1000000';
+                        elInput.step = '0.01';
+                        break;
+                    default:
+                        elInput = document.createElement('input');
+                }
+
+                elInput.style.width = td.clientWidth + 'px';
+                elInput.style.height = td.clientHeight + 'px';
+
+                applyControlValidation(elInput)
+
+                return elInput;
+            }
+
+            function applyControlValidation(elm) {
+                switch (elm.type) {
+                    case 'date':
+                        break;
+                    case 'checkbox':
+                        return;
+                    case 'tel':
+                        break;
+                    case 'number':
+                        break;
+                    default:
+                }
+
+                elm.setAttribute('required', 'true');
+                elm.setAttribute('data-error-message-required', 'Element is required!');
+            }
+
+            function finishTdEdit(td, isOk) {
+                if (isOk) {
+                    td.innerHTML = td.firstChild.value;
+                } else {
+                    td.innerHTML = editingTd.data;
+                }
+                editingTd = null;
+            }
+
+            function updatePersonInfo(row) {
+                var id = row.data('id');
+                var person = {
+                    Id: id,
+                    Name: row.find('td:eq(0)').text(),
+                    DateOfBirth: row.find('td:eq(1)').text(),
+                    Married: row.find('td:eq(2)').text() === "true",
+                    Phone: row.find('td:eq(3)').text(),
+                    Salary: row.find('td:eq(4)').text()
+                };
+
+                $.ajax({
+                    url: '/Contact/UpdateContact',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(person),
+                    success: function () {
+                        alert('Updated successfully');
+                    },
+                    error: function (xhr, status, error) {
+                        var responseText = xhr.responseText;
+                        alert('Update failed: ' + responseText);
+                    }
+                });
+            };
+
+            // Delete record
+            $('.deleteBtn').click(function () {
+                var row = $(this).closest('tr');
+                var id = row.data('id');
+
+                $.ajax({
+                    url: '/Contact/DeleteContact',
+                    type: 'POST',
+                    data: { id: id },
+                    success: function () {
+                        row.remove();
+                    }
+                });
+            });
+        });
+    </script>
+}
