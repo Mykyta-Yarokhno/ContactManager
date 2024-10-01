@@ -1,4 +1,5 @@
 using ContactManager.Apllication;
+using ContactManager.Apllication.Utils;
 using ContactManager.Domain;
 using ContactManager.Infrastructure;
 using ContactManager.Infrastructure.Data;
@@ -18,6 +19,8 @@ namespace ContactManager.Api
             builder.Services.AddScoped<IContactRepository, ContactRepository>();
 
             builder.Services.AddScoped<ContactService>();
+
+            builder.Services.AddSingleton<IEntityDataProvider, EntityDataProvider>();
 
             // Add services to the container.
             builder.Services.AddControllersWithViews();

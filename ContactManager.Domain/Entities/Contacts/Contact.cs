@@ -24,6 +24,11 @@ namespace ContactManager.Domain.Entities.Contacts
         [Range(0, double.MaxValue, ErrorMessage = "Salary must be a positive number")]
         public decimal Salary { get; private set; }
 
+        public Contact()
+        {
+
+        }
+
         public Contact(int id, string name, DateTime dateOfBirth, bool married, string phone, decimal salary)
         {
             Id = id;

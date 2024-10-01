@@ -3,16 +3,18 @@ using System.Globalization;
 using ContactManager.Apllication;
 using ContactManager.Domain.Entities.Contacts;
 using ContactManager.Api.DTO.Contacts;
+using ContactManager.Apllication.Utils;
 
 namespace ContactManagerWebApplication.Controllers
 {
     public class ContactController : Controller
     {
         private readonly ContactService _contactService;
-
-        public ContactController(ContactService contactService)
+        private readonly IEntityDataProvider _entityDataProvider;
+        public ContactController(ContactService contactService, IEntityDataProvider entityDataProvider)
         {
             _contactService = contactService;
+            _entityDataProvider = entityDataProvider;
         }
 
         public  IActionResult Index()
@@ -23,52 +25,16 @@ namespace ContactManagerWebApplication.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> UploadNewCsvFile(IFormFile file)
+        public async Task<IActionResult> UploadNewFile(IFormFile file, string fileFormat = nameof(IEntityDataProvider.EntityFormatProviders.CSV))
         {
             if (file == null || file.Length == 0)
                 return BadRequest("File is empty");
 
             var contacts = new List<Contact>();
 
-            using (var streamReader = new StreamReader(file.OpenReadStream()))
-            {
-                var cultureInfo = new CultureInfo("en-US");
+            var reader = _entityDataProvider.GetDataProvider<Contact>((IEntityDataProvider.EntityFormatProviders)Enum.Parse(typeof(IEntityDataProvider.EntityFormatProviders) , fileFormat) , file.OpenReadStream());
 
-                // Skip CSV header 
-                streamReader.ReadLine();
-
-                string? line;
-
-                while ((line = streamReader.ReadLine()) != null)
-                {
-                    var values = line.Split(',');
-
-                    if (values.Length == 5)
-                    {
-                        try
-                        {
-                            var contact = new Contact
-                            (
-                                0,
-                                values[0],
-                                DateTime.Parse(values[1]),
-                                bool.Parse(values[2]),
-                                values[3],
-                                decimal.Parse(values[4], cultureInfo)
-                            );
-
-                            contacts.Add(contact);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error: {ex.Message}");
-                        }
-                    }
-                }
-            }
-
-            if (contacts.Count > 0)
-                await _contactService.RegisterContact(contacts);
+            await _contactService.RegisterContact(reader.Read());
                     
             return RedirectToAction("Index");
         }
